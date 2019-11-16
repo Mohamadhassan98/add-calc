@@ -16,21 +16,46 @@ import DeleteSweepIcon from '@material-ui/icons/DeleteSweep';
 
 
 export default class AddCalc extends React.Component {
+    /**
+     * Message to show when server does not respond correctly.
+     */
     wrong = 'Something went wrong';
 
     constructor(props) {
         super(props);
         this.state = {
+            /**
+             * Show minus in input and control negative input insertion.
+             */
             minus: false,
+            /**
+             * Current input inserted.
+             */
             input: '0',
+            /**
+             * Current equation, formally some inputs followed by `+` operator.
+             */
             inputs: '0',
+            /**
+             * Controls if app is in show result state.
+             */
             result: false,
             anchorEl: null,
+            /**
+             * Controls showing loading when server request is sent.
+             */
             loading: false,
+            /**
+             * The message to show when the server responds. Default is blank.
+             * @see wrong
+             */
             wrong: ''
         };
     }
 
+    /**
+     * If app is in show result state, resets the other states to default.
+     */
     resetInputs = () => {
         if (this.state.result) {
             this.setState({
@@ -42,6 +67,10 @@ export default class AddCalc extends React.Component {
         }
     };
 
+    /**
+     * Invoked when any number buttons are pressed. Updates the current input accordingly.
+     * @param number the number that is pressed
+     */
     onNumPressed = (number) => {
         this.resetInputs();
         if (this.state.input === '0') {
@@ -55,6 +84,11 @@ export default class AddCalc extends React.Component {
         }
     };
 
+    /**
+     * Invokes when `0` is pressed. If the current input is `0` already, does nothing. Else invokes onNumPressed with
+     * `0` input.
+     * @see onNumPressed
+     */
     onZeroPressed = () => {
         this.resetInputs();
         if (this.state.input !== '0') {
@@ -62,6 +96,10 @@ export default class AddCalc extends React.Component {
         }
     };
 
+    /**
+     * Invoked when decimal point (`.`) button is pressed. Makes sure that there is no more than one decimal points
+     * present in current input.
+     */
     onDecimalPointPressed = () => {
         this.resetInputs();
         if (!this.state.input.toString().includes('.')) {
@@ -71,6 +109,12 @@ export default class AddCalc extends React.Component {
         }
     };
 
+    /**
+     * Invokes when backspace button is pressed shortly. Removes one digit from current input (if present any).
+     * @see backspacePress
+     * @see backspaceRelease
+     * @see clearState
+     */
     onBackspacePressed = () => {
         this.resetInputs();
         if (this.state.input.length > 1) {
@@ -86,6 +130,12 @@ export default class AddCalc extends React.Component {
         }
     };
 
+    /**
+     * Invoked when backspace button is long pressed. Clears the current input and all previously inserted inputs.
+     * @see backspacePress
+     * @see backspaceRelease
+     * @see onBackspacePressed
+     */
     clearState = () => {
         this.setState({
             inputs: '0',
@@ -98,10 +148,16 @@ export default class AddCalc extends React.Component {
         this.longPressed = true;
     };
 
+    /**
+     * Invoked when backspace button is started to press.
+     */
     backspacePress = () => {
         this.longPress = setTimeout(this.clearState, 1000);
     };
 
+    /**
+     * Invoked when backspace button is released.
+     */
     backspaceRelease = () => {
         clearTimeout(this.longPress);
         if (!this.longPressed) {
@@ -110,6 +166,12 @@ export default class AddCalc extends React.Component {
         this.longPressed = false;
     };
 
+    /**
+     * Trims input, making sure that there are no trailing `0`s after decimal point. Also trims the decimal point
+     * itself, if the last input digit is decimal point (after `0`s are trimmed).
+     * @param input the input to trim
+     * @returns {*} the trimmed input
+     */
     trimInput = (input) => {
         if (input.includes('.')) {
             input = trim(input, '0');
@@ -120,6 +182,9 @@ export default class AddCalc extends React.Component {
         return input;
     };
 
+    /**
+     * Invoked when plus button is pressed. Appends current input to previously inserted inputs.
+     */
     onPlusPressed = () => {
         this.resetInputs();
         const input = this.trimInput(this.state.input.toString());
@@ -131,6 +196,11 @@ export default class AddCalc extends React.Component {
         });
     };
 
+    /**
+     * Invoked when equals button is pressed. Shows the result if there are no equations present (i.e. for example 2=2
+     * is not requested from server.) and server links to request from, otherwise.
+     * @param event
+     */
     onEqualsPressed = (event) => {
         if (this.state.inputs !== '0' && !this.state.result) {
             this.setState({
@@ -139,10 +209,8 @@ export default class AddCalc extends React.Component {
         } else if (this.state.result) {
             this.resetInputs();
         } else {
-            const input = this.trimInput(this.state.input.toString());
-            const isZero = input === '0';
             this.setState({
-                inputs: `${this.state.minus && !isZero ? '(-' : ''}${input}${this.state.minus && !isZero ? ')' : ''}`,
+                inputs: this.actualInput(this.state.input.toString()),
                 input: '0',
                 minus: false,
                 result: true
@@ -150,12 +218,58 @@ export default class AddCalc extends React.Component {
         }
     };
 
+    /**
+     * Returns the actual value of current input, removing trailing zeros (and decimal point) and adding (-) if necessary.
+     * @param input
+     * @returns {string}
+     */
+    actualInput = (input) => {
+        const trimmedInput = this.trimInput(input);
+        const isZero = trimmedInput === '0';
+        return `${this.state.minus && !isZero ? '(-' : ''}${trimmedInput}${this.state.minus && !isZero ? ')' : ''}`;
+    };
+
+    /**
+     * Shows the received response from server.
+     * @param equation
+     * @param response
+     */
+    showResponse = (equation, response) => {
+        const result = response.data.result.toString().charAt(0) === '-' ? `(${response.data.result})` : response.data.result;
+        this.setState({
+            loading: false,
+            inputs: `${equation}=${result}`,
+            result: true,
+            input: '0',
+            minus: false
+        });
+    };
+
+    /**
+     * Shows the error message when server sends inappropriate response.
+     * @param equation
+     */
+    showError = (equation) => {
+        this.setState({
+            loading: false,
+            wrong: this.wrong,
+            result: true,
+            inputs: equation,
+            input: '0',
+            minus: false
+        });
+    };
+
+    /**
+     * Request current equation from selected server, according to method param sent to this function and shows the result or error from server.
+     * @param method a number between 1..3 showing the method selected by user
+     */
     onLinkChose = (method) => {
         this.setState({
             loading: true
         });
         const staticUrl = "https://django-test-ui-project.fandogh.cloud/math/add";
-        const equation = `${this.state.inputs}${this.state.input}`;
+        const equation = `${this.state.inputs}${this.actualInput(this.state.input.toString())}`;
         const inputs = equation.toString().split('+');
         for (let i = 0; i < inputs.length; i++) {
             if (inputs[i].includes('(')) {
@@ -167,20 +281,9 @@ export default class AddCalc extends React.Component {
             case 1:
                 url = `/${inputs[0]}/${inputs[1]}`;
                 axios.get(`${staticUrl}${url}`).then(response => {
-                    this.setState({
-                        loading: false,
-                        inputs: `${equation}=${response.data.result}`,
-                        result: true,
-                        input: '0'
-                    });
+                    this.showResponse(equation, response);
                 }).catch(() => {
-                    this.setState({
-                        loading: false,
-                        wrong: this.wrong,
-                        result: true,
-                        inputs: equation,
-                        input: '0'
-                    });
+                    this.showError(equation);
                 });
                 break;
             case 2:
@@ -197,20 +300,9 @@ export default class AddCalc extends React.Component {
                 }
                 url = trim(url, '&');
                 axios.get(`${staticUrl}${url}`).then(response => {
-                    this.setState({
-                        loading: false,
-                        inputs: `${equation}=${response.data.result}`,
-                        result: true,
-                        input: '0'
-                    });
-                }).catch(error => {
-                    this.setState({
-                        loading: false,
-                        wrong: this.wrong,
-                        result: true,
-                        inputs: equation,
-                        input: '0'
-                    });
+                    this.showResponse(equation, response);
+                }).catch(() => {
+                    this.showError(equation);
                 });
                 break;
             case 3:
@@ -226,20 +318,9 @@ export default class AddCalc extends React.Component {
                     }
                 }
                 axios.post(`${staticUrl}/`, formData).then(response => {
-                    this.setState({
-                        loading: false,
-                        inputs: `${equation}=${response.data.result}`,
-                        result: true,
-                        input: '0'
-                    });
-                }).catch(error => {
-                    this.setState({
-                        loading: false,
-                        wrong: this.wrong,
-                        result: true,
-                        inputs: equation,
-                        input: '0'
-                    });
+                    this.showResponse(equation, response);
+                }).catch(() => {
+                    this.showError(equation);
                 });
                 break;
             default:
@@ -248,12 +329,19 @@ export default class AddCalc extends React.Component {
         this.closeMenu();
     };
 
+    /**
+     * Toggles the minus in current input.
+     */
     toggleMinus = () => {
         this.setState({
             minus: !this.state.minus
         });
     };
 
+    /**
+     * Closes the available server links, shown by pressing equals button.
+     * @see onEqualsPressed
+     */
     closeMenu = () => {
         this.setState({
             anchorEl: null

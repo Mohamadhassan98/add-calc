@@ -1,3 +1,9 @@
+/**
+ * Trims the s param, trailed by c param. More formally, removes all `c`s from end of `s` so that `++c++` becomes `++c` after calling trim('++c++', '+');
+ * @param s the string to trim
+ * @param c the character to remove
+ * @returns {void | string}
+ */
 export function trim(s, c) {
     if (c === "]") c = "\\]";
     if (c === "\\") c = "\\\\";
@@ -6,6 +12,12 @@ export function trim(s, c) {
     ), "");
 }
 
+/**
+ * Counts occurrence of char in string.
+ * @param string
+ * @param char
+ * @returns {number}
+ */
 export function countOccurrence(string, char) {
     const split = string.toString().split(char);
     return split.length - 1;
